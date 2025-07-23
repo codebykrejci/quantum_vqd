@@ -1,0 +1,132 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import h5py
+import tkinter as tk
+from tkinter import filedialog
+from datetime import timedelta
+
+root = tk.Tk()
+root.withdraw()
+
+class QBSPrinter():
+    def __init__(self):
+        self.load_file()
+
+    def load_file(self):
+        file_path = filedialog.askopenfilename(
+        title="Choose .h5 file",
+        filetypes=[("HDF5 files", "*.h5"), ("All files", "*.*")]
+        )
+        print("Selected file:", file_path)
+        with h5py.File(file_path, "r") as f:
+            print(f"The method used in the minimization was {f['calc_method'][()].decode('utf-8')}.")
+            print(f"Bootstrapping was{' NOT' if not f['bootstrapping'][()] else ''} used in the computation.")
+            print(f"The computation took {timedelta(seconds=f['calculated_values_duration'][()])} h:m:s.")
+
+            kpoint_group_names = sorted([
+            key for key in f.keys()
+            if key.startswith('k-point index')
+            ], key=lambda x: int(x.split(' ')[-1]))
+            
+            self.eigenvalues_per_kpoint = []
+            self.n_fun_per_kpoint = []
+            self.optimal_params_per_kpoint = []
+            self.minimize_time_per_kpoint = []
+            self.kpoint_indices = []
+
+            for group_name in kpoint_group_names:
+                
+                k_index = int(group_name.split(' ')[-1])
+                self.kpoint_indices.append(int(k_index))
+                self.eigenvalues_per_kpoint.append(f[group_name]['eigenvalues'][()])
+                self.n_fun_per_kpoint.append(f[group_name]['n_fun'][()])
+                self.optimal_params_per_kpoint.append(f[group_name]['optimal_params'][()])
+                self.minimize_time_per_kpoint.append(f[group_name]['minimize_time'][()]) #TODO !
+
+            self.exact_eigenvalues = f['exact_values']['eigenvalues'][()]
+            self.exact_path = f['exact_values']['path'][()]
+            self.calc_path_print = f['path_print'][()]
+
+    def plot_eigenvalues(self, choosed_color="green"):
+        """
+        Plots of the VQD eenrgies and the exact energies in one graph.
+        """
+
+        fig, ax = plt.subplots()
+        ax.plot(self.exact_path, self.exact_eigenvalues, color="gray")
+        ax.plot(self.calc_path_print, self.eigenvalues_per_kpoint, 'o', color=choosed_color, mfc="none", markeredgewidth=2)
+        ax.set_xlabel('k-point index')
+        ax.set_ylabel('Energy [eV]')
+        ax.set_title('Calculated (colored circles) and exact (gray line) band structure')
+        plt.tight_layout()
+        plt.show()
+
+    def plot_each_eigenvalues(self):
+        """
+        Plots the VQD energies and the exact energies in one graph, each state in different color.
+        """
+
+        num_eigenvalues_per_kpoint = self.eigenvalues_per_kpoint[0].shape[0]
+        eigenvalues_transposed = np.array(self.eigenvalues_per_kpoint).T
+
+        fig, ax = plt.subplots()
+        ax.plot(self.exact_path, self.exact_eigenvalues, color="gray")
+
+        for i in range(num_eigenvalues_per_kpoint):
+            ax.plot(self.calc_path_print, eigenvalues_transposed[i], 'o', label=f'n = {i+1}')
+
+        ax.set_xlabel('k-point index')
+        ax.set_ylabel('Energy [eV]')
+        ax.set_title('Calculated (colored) and exact (gray line) band structure')
+        plt.tight_layout() 
+        plt.show()
+
+    def plot_n_fun(self):
+        """
+        Plots the number of function evaluations for every energy.
+        """
+
+        fig, ax = plt.subplots()
+        ax.plot(self.calc_path_print, self.n_fun_per_kpoint)
+        ax.set_xlabel('k-point index')
+        ax.set_ylabel('number of function evaluations')
+        ax.set_title('Number of Function Evaluations per k-point')
+        #ax.grid(True)
+        ax.set_xticks(np.arange(len(self.calc_path_print)))
+        plt.tight_layout()
+        plt.show()
+
+
+    def plot_calc_time(self):
+        """
+        Plots the map of the minimization time for each state and k-point.
+        """
+
+        fig, ax = plt.subplots(gridspec_kw={'height_ratios': [4]})
+        fig.suptitle(f"Whole duration: {timedelta(seconds=np.sum(self.minimize_time_per_kpoint))} h:m:s", fontsize=14)
+        data_2d = np.array(self.minimize_time_per_kpoint).T
+        im1 = ax.imshow(data_2d, origin='lower', aspect='auto', cmap='viridis')
+        fig.colorbar(im1, ax=ax)
+        ax.set_xlabel('k-point index')
+        ax.set_ylabel('state')
+        ax.set_yticks(np.arange(data_2d.shape[0]))
+        ax.set_xticks(np.arange(data_2d.shape[1]))
+        ax.set_title(f"Duration in s for each state and k-point")
+        plt.tight_layout()
+        plt.show()
+
+if __name__ == "__main__":
+    s = QBSPrinter()
+    s.plot_eigenvalues()
+    s.plot_each_eigenvalues()
+    s.plot_n_fun()
+    s.plot_calc_time()
+   
+
+
+
+
+
+
+
+ 
