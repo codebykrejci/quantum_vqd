@@ -33,9 +33,6 @@ def calculate_overlaps(ansatz: QuantumCircuit,
               (|<current_state|previous_state>|^2) between the current ansatz
               state and each of the previous circuit states.
     :rtype: numpy.ndarray
-    :raises ValueError: If the dimensions of the quantum states do not match,
-                        indicating an issue with circuit compatibility, or if
-                        state vectors cannot be created from the provided circuits/parameters.
     """
     overlaps = []
     current_state = Statevector(ansatz.assign_parameters(variational_parameters))
@@ -45,13 +42,12 @@ def calculate_overlaps(ansatz: QuantumCircuit,
         overlaps.append(overlap)
     return np.array(overlaps)
       
-
 def cost_func_vqd(parameters: np.ndarray, 
-                  ansatz: QuantumCircuit, 
+                  ansatz: QuantumCircuit,
+                  num_qubits: int,
+                  hamiltonian: np.ndarray, 
                   previous_states: list[tuple[QuantumCircuit, np.ndarray]], 
-                  betas: np.ndarray, 
-                  estimator: StatevectorEstimator, 
-                  hamiltonian: SparsePauliOp) -> float:
+                  betas: np.ndarray) -> float:
     """
     Cost function for Variational Quantum Deflation (VQD).
 
@@ -66,6 +62,11 @@ def cost_func_vqd(parameters: np.ndarray,
     :param ansatz: The quantum circuit representing the current ansatz.
                    The circuit's parameters are optimized during the VQD process.
     :type ansatz: qiskit.circuit.QuantumCircuit
+    :param num_qubits: Number of qubits.
+    :type num_qubits: integer
+    :param hamiltonian: The Hamiltonian operator for which the energy expectation value
+                        is to be calculated. 
+    :type hamiltonian: numpy.ndarray
     :param previous_states: A list of previously optimized quantum states. Each element in this list
                         is a tuple containing a `QuantumCircuit` (with the same ansatz structure)
                         and a NumPy array of its optimal numerical parameters.
@@ -74,51 +75,62 @@ def cost_func_vqd(parameters: np.ndarray,
                   These coefficients determine the magnitude of the penalty for the overlap terms.
                   They are crucial for ensuring the VQD algorithm finds distinct eigenstates.
     :type betas: numpy.ndarray
-    :param estimator: The Qiskit primitive estimator used to evaluate the expectation value
-                      of the Hamiltonian. This is typically a `StatevectorEstimator` for ideal simulations.
-    :type estimator: qiskit.primitives.StatevectorEstimator
-    :param hamiltonian: The Hamiltonian operator for which the energy expectation value
-                        is to be calculated. 
-    :type hamiltonian: qiskit.quantum_info.SparsePauliOp
     :returns: The total cost for the VQD optimization. This includes the energy
               expectation value and the deflation penalty, which the optimizer aims to minimize.
     :rtype: float
-    :raises ValueError: If the estimator job fails or returns unexpected results,
-                        or if `calculate_overlaps` encounters an issue during its execution.
     """
 
-    job = estimator.run([(ansatz, hamiltonian, parameters)])
-    estimator_result = job.result()
-    energy = estimator_result[0].data.evs  
+    param_circuit = ansatz.assign_parameters(parameters)
+    state_vector = Statevector.from_instruction(param_circuit).data
 
-    total_cost = energy
+    amplitudes = {
+        j: state_vector[int(''.join(['0'] * (num_qubits - 1 - j) + ['1'] + ['0'] * j), 2)]
+        for j in range(num_qubits)
+    }
+
+    diag_contrib = sum(
+        hamiltonian[j, j].real * abs(amplitudes[j])**2
+        for j in range(num_qubits)
+        if hamiltonian[j, j].real != 0
+    )
+
+    offdiag_contrib = sum(
+        2 * np.real(hamiltonian[j, l] * np.conjugate(amplitudes[j]) * amplitudes[l])
+        for j in range(num_qubits - 1)
+        for l in range(j + 1, num_qubits)
+        if hamiltonian[j, l] != 0
+    )
+
+    total_cost = diag_contrib + offdiag_contrib
+
     if previous_states:
-        overlaps = calculate_overlaps(ansatz, [state.assign_parameters(opt_params) for state, opt_params in previous_states], parameters)
-        total_cost += np.sum([np.real(betas[i] * overlaps[i]) for i in range(len(overlaps))])
+        prev_param_states = [
+            state.assign_parameters(params)
+            for state, params in previous_states
+        ]
+        overlaps = calculate_overlaps(ansatz, prev_param_states, parameters)
+        total_cost += sum(
+            np.real(betas[i] * overlaps[i])
+            for i in range(len(overlaps))
+        )
 
     return total_cost
+
 
 class QuantumBandStructureCalculator:
     def __init__(self):
         
         self.num_qubits = config.NUM_QUBITS
-        self.points = config.POINTS
         self.neighbors = config.NEIGHBORS
         self.params_Si = config.PARAMS_SI
-        self.lattice_constant = config.LATTICE_CONSTANT
         self.calc_method = config.calc_method
         self.max_iter = config.max_iter
         self.bootstrapping = config.bootstrapping
         self.num_states = config.num_states
         self.path_q = config.path_q
-        self.path_q_print = config.path_q_plot
         self.exact_path_q = config.path_exact
-        self.exact_path_q_print = config.path_exact_plot
 
-        # Qiskit components
         self.circuit = self._build_ansatz_circuit()
-        self.estimator = StatevectorEstimator() 
-
     
     def _build_ansatz_circuit(self) -> QuantumCircuit:
         """
@@ -132,7 +144,7 @@ class QuantumBandStructureCalculator:
         """
             
         circuit = QuantumCircuit(self.num_qubits)
-        params = ParameterVector("theta", 2*(self.num_qubits-1))  
+        params = ParameterVector('theta', 2*(self.num_qubits-1))  
 
         circuit.x(0)
 
@@ -151,50 +163,6 @@ class QuantumBandStructureCalculator:
 
         return circuit
     
-    def build_qubit_hamiltonian(self, classical_hamiltonian, k):
-        """
-        Build qubit Hamiltonian from a classical Hamiltonian matirx that accepts a wavevector k.
-
-        Args:
-            classical_hamiltonian: Callable[[np.ndarray], np.ndarray]
-                Function returning an NxN complex hermitian matrix for given k.
-            k: np.ndarray
-                Wavevector of any dimension, passed directly to classical_hamiltonian.
-
-        Returns:
-            SparsePauliOp.from_sparse_list representing the qubit Hamiltonian.
-        """
-        
-        matrix = classical_hamiltonian
-        N = len(matrix)       # dimension of matrix is the same as the number of qubits
-        
-        sparse_pauli_list = []
-        
-        # diagonal terms: \sum_{j=0}^{N-1}1/2\varepsilon_{j}*(I - Z_{j})
-        for j in range(N):
-            epsilon = matrix[j,j]    # on-site TB energies
-            if epsilon != 0:
-                coeff = 1/2*epsilon
-                sparse_pauli_list.append(("I", [j], coeff))       # Identities
-                sparse_pauli_list.append(("Z", [j], -coeff))      # -Z_{j} terms
-                
-                
-        # off-diagonal terms: \sum_{j=0}^{N-1}\sum_{l>j}(Re{...} + Im{...})
-        
-        for j in range(N):
-            for l in range(j+1, N):
-                matrix_element = matrix[j,l]     # hamiltonian matrix elements \mathcal{H}_{jl}(\boldsymbol{k})
-                if matrix_element != 0:
-                    real = np.real(matrix_element)
-                    imag = np.imag(matrix_element)
-                    
-                    sparse_pauli_list.append(("XX", [j,l], real))    
-                    sparse_pauli_list.append(("XY", [j,l], imag))    
-        
-        
-        return SparsePauliOp.from_sparse_list(sparse_pauli_list, N)
-
-
     def energies_q(self,k):
         """
         Computes the eigenvalues (energies) of a given Hamiltonian
@@ -222,8 +190,7 @@ class QuantumBandStructureCalculator:
         n_fun = [] 
         time_duration = []
         class_ham, class_eignvls = config.hamiltonian_sp3s(config.phase(k, self.neighbors), *self.params_Si)
-        ham = self.build_qubit_hamiltonian(class_ham, k)
-        upper_bound = sum(np.abs(ham.coeffs))
+        upper_bound = np.sum(np.abs(np.triu(class_ham, k=0)))
         betas = np.asarray([upper_bound * 2] * (self.num_states - 1))
 
 
@@ -237,14 +204,14 @@ class QuantumBandStructureCalculator:
 
             result = minimize(cost_func_vqd,
                             x0=initial_parameters,
-                            args=(self.circuit, prev_states, betas, self.estimator, ham),
+                            args=(self.circuit, self.num_qubits, class_ham, prev_states, betas),
                             method=self.calc_method,
                             options={'maxiter': self.max_iter},
                             tol=1e-5)
             
             end_time_minimize = time.time()
             duration_minimize = end_time_minimize - start_time_minimize
-            print(f"Minimization done, duration: {duration_minimize:.4f} s")
+            print(f'Minimization done, duration: {duration_minimize:.4f} s')
             time_duration.append(duration_minimize)
 
             opt_parameters.append(result.x)
@@ -277,51 +244,53 @@ class QuantumBandStructureCalculator:
                 - `calc_method`, `max_iter`, `bootstrapping`, `num_states`, `lattice_constant`, `path_print`
             - For each k-point:
                 - Group `k-point index {i}` with datasets:
-                    - `"eigenvalues"` – sorted list of approximated eigenenergies
-                    - `"n_fun"` – number of function evaluations for each state
-                    - `"optimal_params"` – optimal parameters for each state
-                    - `"minimize_time"` – duration of each optimization step  
-            - `"exact_values"` group:
-                - `"eigenvalues"` – list of classically computed eigenvalues
-                - `"path"` – the corresponding path used for exact values
+                    - `eigenvalues` – sorted list of approximated eigenenergies
+                    - `n_fun` – number of function evaluations for each state
+                    - `optimal_params` – optimal parameters for each state
+                    - `minimize_time` – duration of each optimization step  
+            - `exact_values` group:
+                - `eigenvalues` – list of classically computed eigenvalues
+                - `path` – the corresponding path used for exact values
 
         """
 
         start_time_script = time.time()
         self.step = 0
-        timename = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        timename = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
 
-        with h5py.File(f"results_{timename}.h5", "w") as f:
-            f.create_dataset("calc_method", data = self.calc_method, dtype=h5py.string_dtype(encoding='utf-8'))
-            f.create_dataset("max_iter", data = self.max_iter)
-            f.create_dataset("bootstrapping", data = self.bootstrapping)
-            f.create_dataset("num_states", data = self.num_states)
-            f.create_dataset("lattice_constant", data = self.lattice_constant)
-            f.create_dataset("path_print", data = self.path_q_print)
+        with h5py.File(f'results_{timename}.h5', 'w') as f:
+            f.create_dataset('calc_method', data = self.calc_method, dtype=h5py.string_dtype(encoding='utf-8'))
+            f.create_dataset('max_iter', data = self.max_iter)
+            f.create_dataset('bootstrapping', data = self.bootstrapping)
+            f.create_dataset('num_states', data = self.num_states)
+            f.create_dataset('lattice_constant', data = config.LATTICE_CONSTANT)
+            f.create_dataset('path_print', data = config.path_q_plot)
+            f.create_dataset('labels_position', data = config.labels_position)
+            f.create_dataset('labels_name', data = config.labels_name, dtype=h5py.string_dtype(encoding='utf-8'))
 
-            print("Calculating exact values...")
+            print('Calculating exact values...')
             exact_values = []
             for k_ in self.exact_path_q:
                 class_ham, class_eignvls = config.hamiltonian_sp3s(config.phase(k_, self.neighbors), *self.params_Si)
                 exact_values.append(class_eignvls)
 
-            exact_group = f.create_group("exact_values")
-            exact_group.create_dataset("eigenvalues", data=exact_values)
-            exact_group.create_dataset("path", data=self.exact_path_q_print)
-            print("Done.")
-            print("Starting with quantum computation.")
+            exact_group = f.create_group('exact_values')
+            exact_group.create_dataset('eigenvalues', data = exact_values)
+            exact_group.create_dataset('path', data = config.path_exact_plot)
+            print('Done.')
+            print('Starting with quantum computation.')
             
             start_calc_time = time.time()
 
             for k_ in range(len(self.path_q)):
-                k_group = f.create_group(f"k-point index {k_}")
-                print(f"Calculating {k_+1}/{len(self.path_q)}")
+                k_group = f.create_group(f'k-point index {k_}')
+                print(f'Calculating {k_+1}/{len(self.path_q)}')
                 result = self.energies_q(self.path_q[k_])
 
-                k_group.create_dataset("eigenvalues", data=result[0])
-                k_group.create_dataset("n_fun", data=result[1])
-                k_group.create_dataset("optimal_params", data=result[2])
-                k_group.create_dataset("minimize_time", data=result[3]) 
+                k_group.create_dataset('eigenvalues', data=result[0])
+                k_group.create_dataset('n_fun', data=result[1])
+                k_group.create_dataset('optimal_params', data=result[2])
+                k_group.create_dataset('minimize_time', data=result[3]) 
 
                 f.flush() 
 
@@ -330,16 +299,16 @@ class QuantumBandStructureCalculator:
 
             end_calc_time_script = time.time()
             duration_calc = end_calc_time_script - start_calc_time
-            print(f"Total time duration for calculated values: {duration_calc:.4f} s")
+            print(f'Total time duration for calculated values: {duration_calc:.4f} s')
         
-            f.create_dataset("calculated_values_duration", data=duration_calc)
+            f.create_dataset('calculated_values_duration', data=duration_calc)
 
 
         end_time_script = time.time()
         duration_calc = end_time_script - start_time_script
-        print(f"Total time duration: {duration_calc:.4f} s")
+        print(f'Total time duration: {duration_calc:.4f} s')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     qbsc = QuantumBandStructureCalculator()
     qbsc.run_calculation()
