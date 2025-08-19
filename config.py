@@ -82,14 +82,16 @@ def interpolate_path(n_c, calc_path, calc_plot, exact, plot):
     return exact, plot
 
 # path for quantum computation
-lambd_q = linpath(POINTS["L"], POINTS["G"], n_q, endpoint=False)
-delta_q = linpath(POINTS["G"], POINTS["X"], n_q, endpoint=False)
-x_uk_q = linpath(POINTS["X"], POINTS["U"], n_q //4  , endpoint=False)
-sigma_q = linpath(POINTS["K"], POINTS["G"], n_q, endpoint=True)
+lambd_q = linpath(POINTS['L'], POINTS['G'], n_q, endpoint=False)
+delta_q = linpath(POINTS['G'], POINTS['X'], n_q, endpoint=False)
+x_uk_q = linpath(POINTS['X'], POINTS['U'], n_q //4  , endpoint=False)
+sigma_q = linpath(POINTS['K'], POINTS['G'], n_q, endpoint=True)
+
+labels_name = ['L', 'Γ', 'X', 'U,K', 'Γ']
+labels_position = [0, n_q , 2*n_q , 2*n_q + n_q//4 , 3*n_q + n_q//4 -1]
 
 path_q = np.vstack([lambd_q, delta_q, x_uk_q, sigma_q])
 path_q_plot = np.arange(0, len(path_q),1)
-
 
 # path for classical diagonalization
 path_q0 = np.vstack([lambd_q, delta_q, x_uk_q])
