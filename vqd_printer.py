@@ -16,6 +16,7 @@ class QBSPrinter():
         file_path = filedialog.askopenfilename(
         title='Choose .h5 file',
         filetypes=[('HDF5 files', '*.h5'), ('All files', '*.*')]
+        )
         print('Selected file:', file_path)
         with h5py.File(file_path, 'r') as f:
             print(f'The method used in the minimization was {f['calc_method'][()].decode('utf-8')}.')
