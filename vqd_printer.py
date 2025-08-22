@@ -14,14 +14,14 @@ class QBSPrinter():
 
     def load_file(self):
         file_path = filedialog.askopenfilename(
-        title='Choose .h5 file',
-        filetypes=[('HDF5 files', '*.h5'), ('All files', '*.*')]
+        title="Choose .h5 file",
+        filetypes=[("HDF5 files", "*.h5"), ("All files", "*.*")]
         )
-        print('Selected file:', file_path)
-        with h5py.File(file_path, 'r') as f:
-            print(f'The method used in the minimization was {f['calc_method'][()].decode('utf-8')}.')
-            print(f'Bootstrapping was{' NOT' if not f['bootstrapping'][()] else ''} used in the computation.')
-            print(f'The computation took {timedelta(seconds=f['calculated_values_duration'][()])} h:m:s.')
+        print("Selected file:", file_path)
+        with h5py.File(file_path, "r") as f:
+            print(f"The method used in the minimization was {f['calc_method'][()].decode('utf-8')}.")
+            print(f"Bootstrapping was{' NOT' if not f['bootstrapping'][()] else ''} used in the computation.")
+            print(f"The computation took {timedelta(seconds=f['calculated_values_duration'][()])} h:m:s.")
 
             kpoint_group_names = sorted([
             key for key in f.keys()
@@ -49,14 +49,14 @@ class QBSPrinter():
             self.labels_name = list(f['labels_name'].asstr()[...])
             self.labels_position = f['labels_position'][()]
 
-    def plot_eigenvalues(self, choosed_color='green'):
+    def plot_eigenvalues(self, choosed_color="green"):
         """
-        Plots of the VQD eenrgies and the exact energies in one graph.
+        Plots of the VQD energies and the exact energies in one graph.
         """
 
         fig, ax = plt.subplots()
-        ax.plot(self.exact_path, self.exact_eigenvalues, color='gray')
-        ax.plot(self.calc_path_print, self.eigenvalues_per_kpoint, 'o', color=choosed_color, mfc='none', markersize=4, markeredgewidth=2)
+        ax.plot(self.exact_path, self.exact_eigenvalues, color="gray")
+        ax.plot(self.calc_path_print, self.eigenvalues_per_kpoint, 'o', color=choosed_color, mfc="none", markersize=4, markeredgewidth=2)
         ax.set_xticks(self.labels_position)
         ax.set_xticklabels(self.labels_name, fontsize=10)
         ax.set_xlabel('k-point')
@@ -74,10 +74,10 @@ class QBSPrinter():
         eigenvalues_transposed = np.array(self.eigenvalues_per_kpoint).T
 
         fig, ax = plt.subplots()
-        ax.plot(self.exact_path, self.exact_eigenvalues, color='gray')
+        ax.plot(self.exact_path, self.exact_eigenvalues, color="gray")
 
         for i in range(num_eigenvalues_per_kpoint):
-            ax.plot(self.calc_path_print, eigenvalues_transposed[i], 'o', mfc='none', markersize=4, markeredgewidth=2, label=f'n = {i+1}')
+            ax.plot(self.calc_path_print, eigenvalues_transposed[i], 'o', mfc="none", markersize=4, markeredgewidth=2, label=f'n = {i+1}')
 
         ax.set_xticks(self.labels_position)
         ax.set_xticklabels(self.labels_name, fontsize=10)
@@ -111,7 +111,7 @@ class QBSPrinter():
         """
 
         fig, ax = plt.subplots(gridspec_kw={'height_ratios': [4]})
-        fig.suptitle(f'Whole duration: {timedelta(seconds=np.sum(self.minimize_time_per_kpoint))} h:m:s', fontsize=14)
+        fig.suptitle(f"Whole duration: {timedelta(seconds=np.sum(self.minimize_time_per_kpoint))} h:m:s", fontsize=14)
         data_2d = np.array(self.minimize_time_per_kpoint).T
         im1 = ax.imshow(data_2d, origin='lower', aspect='auto', cmap='viridis')
         fig.colorbar(im1, ax=ax)
@@ -121,11 +121,11 @@ class QBSPrinter():
         ax.set_ylabel('state')
         ax.set_yticks(np.arange(data_2d.shape[0]))
         #ax.set_xticks(np.arange(data_2d.shape[1]))
-        ax.set_title(f'Duration in s for each state and k-point')
+        ax.set_title(f"Duration in s for each state and k-point")
         plt.tight_layout()
         plt.show()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     s = QBSPrinter()
     s.plot_eigenvalues()
     s.plot_each_eigenvalues()
