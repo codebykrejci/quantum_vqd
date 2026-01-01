@@ -59,7 +59,11 @@ class QBSPrinter():
         ax.plot(self.calc_path_print, self.eigenvalues_per_kpoint, 'o', color=choosed_color, mfc="none", markersize=4, markeredgewidth=2)
         ax.set_xticks(self.labels_position)
         ax.set_xticklabels(self.labels_name, fontsize=10)
+<<<<<<< HEAD
         ax.set_xlabel('k-point')
+=======
+        ax.set_xlabel('Wave vector k')
+>>>>>>> 53f2b8d (sampler & statevector)
         ax.set_ylabel('Energy [eV]')
         ax.set_title('Calculated (colored circles) and exact (gray line) band structure')
         plt.tight_layout()
@@ -81,7 +85,11 @@ class QBSPrinter():
 
         ax.set_xticks(self.labels_position)
         ax.set_xticklabels(self.labels_name, fontsize=10)
+<<<<<<< HEAD
         ax.set_xlabel('k-point')
+=======
+        ax.set_xlabel('Wave vector k')
+>>>>>>> 53f2b8d (sampler & statevector)
         ax.set_ylabel('Energy [eV]')
         ax.set_title('Calculated (colored) and exact (gray line) band structure')
         plt.tight_layout() 
@@ -89,10 +97,11 @@ class QBSPrinter():
 
     def plot_n_fun(self):
         """
-        Plots the number of function evaluations for every energy.
+        Plots the number of function evaluations for every energy level
+        along the k-point path. Each energy (eigenvalue) is shown as a separate line.
         """
-
         fig, ax = plt.subplots()
+<<<<<<< HEAD
         ax.plot(self.calc_path_print, self.n_fun_per_kpoint)
         ax.set_xticks(self.labels_position)
         ax.set_xticklabels(self.labels_name, fontsize=10)
@@ -101,13 +110,29 @@ class QBSPrinter():
         ax.set_title('Number of Function Evaluations per Energy')
         #ax.grid(True)
         #ax.set_xticks(np.arange(len(self.calc_path_print)))
+=======
+
+        n_eigenvalues = len(self.n_fun_per_kpoint[0])  
+        n_fun_array = np.array(self.n_fun_per_kpoint)  
+        for i in range(n_eigenvalues):
+            ax.plot(self.calc_path_print, n_fun_array[:, i], marker='o', label=f'Eigenvalue {i+1}')
+
+        ax.set_xticks(self.labels_position)
+        ax.set_xticklabels(self.labels_name, fontsize=10)
+
+        ax.set_xlabel('Wave vector k')
+        ax.set_ylabel(r'N$_{\text{fun}}$')
+        ax.set_title('Number of Function Evaluations per Energy')
+        ax.legend(fontsize=10)
+>>>>>>> 53f2b8d (sampler & statevector)
         plt.tight_layout()
         plt.show()
 
 
+
     def plot_calc_time(self):
         """
-        Plots the map of the minimization time for each state and k-point.
+        Plots the map of the minimization time for each state and wave vector k.
         """
 
         fig, ax = plt.subplots(gridspec_kw={'height_ratios': [4]})
@@ -117,11 +142,19 @@ class QBSPrinter():
         fig.colorbar(im1, ax=ax)
         ax.set_xticks(self.labels_position)
         ax.set_xticklabels(self.labels_name, fontsize=10)
+<<<<<<< HEAD
         ax.set_xlabel('k-point')
         ax.set_ylabel('state')
         ax.set_yticks(np.arange(data_2d.shape[0]))
         #ax.set_xticks(np.arange(data_2d.shape[1]))
         ax.set_title(f"Duration in s for each state and k-point")
+=======
+        ax.set_xlabel('Wave vector k')
+        ax.set_ylabel('State')
+        ax.set_yticks(np.arange(data_2d.shape[0]))
+        #ax.set_xticks(np.arange(data_2d.shape[1]))
+        ax.set_title(f"Duration in [s] for each state and k-point")
+>>>>>>> 53f2b8d (sampler & statevector)
         plt.tight_layout()
         plt.show()
 
@@ -131,4 +164,8 @@ if __name__ == "__main__":
     s.plot_each_eigenvalues()
     s.plot_n_fun()
     s.plot_calc_time()
+<<<<<<< HEAD
    
+=======
+   
+>>>>>>> 53f2b8d (sampler & statevector)
