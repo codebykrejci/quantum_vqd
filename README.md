@@ -2,9 +2,8 @@
 # Quantum band structure calculation using VQD and constant measurement protocol
 
 ## Introduction
-This repository contains code for "Minimum measurements quantum protocol for band structure
-calculations", available on https://arxiv.org/pdf/2511.04389. The code implements the **Variational Quantum Deflation (VQD)** method and **Constant Measurement Protocol** to calculate the electronic band structure of several materials using tight-binding model. 
-The calculation results are stored in an **HDF5 file**, and a visualization script allows for comparison between VQD results and classical exact diagonalization.
+This repository contains the code for “Minimum Measurements Quantum Protocol for Band Structure Calculations”, available at https://arxiv.org/pdf/2511.04389
+. The code implements the **Variational Quantum Deflation (VQD)** method and the **Constant Measurement Protocol** to calculate the electronic band structure of several materials using the tight-binding model. The calculation results are stored in an **HDF5** file, and a visualization script enables comparison between the VQD results and classical exact diagonalization.
 
 ## Requirements and Installation
 
@@ -60,12 +59,36 @@ The project is divided into two main phases: **calculation** and **visualization
 
 ### 1. Configuration Setup (`config_CuO2.py`, `config_bg.py`, `config_Si.py`)
 
-Before running the calculation, parameters must be set in the 'config' files. There three 'config' files, one for each material, namely `config_CuO2.py` for 2D square lattice with three atom basis copper–oxygen CuO₂ system, `config_bg.py` for bilayer graphene and `config_Si.py` for 3D $\text{sp}^{3}\text{s}^{*}$ silicon model. The 'config' files contain the calculation parameters classical optimizer settings such as optimizer method, maximum number of iteration number of quantum circuit execution, bootstrapping. Additionally, there are material specific parameters such as the on-site energies and hopping amplitudes, high-symmetry path in the 1st Brillouin zone along which the calculation is run. The high-symmetry path is divided into a 'classical' path and a 'quantum' path. The classical path is densely sampled and treated as continuous; it is used to compute the band structure via exact diagonalization. In contrast, the quantum path consists of only a small number of discrete k-points, reflecting the higher computational cost of the VQD calculation.
+Before running the calculations, parameters must be set in the **‘config’ files**. There are three **‘config’ files**, one for each material:
+
+- `config_CuO2.py` for the 2D square lattice with a three-atom copper–oxygen (CuO₂) basis  
+- `config_bg.py` for bilayer graphene  
+- `config_Si.py` for the 3D $\text{sp}^{3}\text{s}^{*}$ silicon model  
+
+The **‘config’ files** contain the calculation parameters and classical optimizer settings, such as:
+
+- Optimizer method  
+- Maximum number of iterations  
+- Number of quantum circuit executions  
+- Bootstrapping  
+
+Additionally, they include material-specific parameters, such as on-site energies, hopping amplitudes, and the high-symmetry path in the first Brillouin zone along which the calculation is performed.
+
+The high-symmetry path is divided into a **‘classical’ path** and a **‘quantum’ path**:
+
+- The classical path is densely sampled and treated as continuous; it is used to compute the band structure via exact diagonalization.  
+- The quantum path consists of only a small number of discrete k-points, reflecting the higher computational cost of the VQD calculation.
 
 
-### 2. Running the Calculation (`vqd_sampler.py`, `vqd_statevector.py` )
 
-The main computation script performs the VQD calculation for every k-point in the defined band structure path. There two types of solvers. The `vqd_sampler.py` uses 'AerSimulator' method from Qiskit to sample the quantum circuit. Additionaly, the `vqd_sampler.py` imports `cmp.py` file. This file contains all necesary functions that implements the Constant Measurement Protocl as described in the main article. Furthermore, the `vqd_statevector.py` implements the VQD calculation for TB hamiltonian, Eg. (5) from the main article, using exact state vector representation of an quantum circuit.
+### 2. Running the calculation (`vqd_sampler.py`, `vqd_statevector.py` )
+
+The main computation script performs the VQD calculation for every k-point in the defined band structure path. There are two types of solvers:
+
+- **`vqd_sampler.py`** uses the **AerSimulator** method from Qiskit to sample the quantum circuit. Additionally, `vqd_sampler.py` imports the `cmp.py` file, which contains all the necessary functions that implement the **Constant Measurement Protocol** as described in the main article.  
+
+- **`vqd_statevector.py`** implements the VQD calculation for the tight-binding Hamiltonian (e.g., Equation (5) from the main article) using the exact state vector representation of a quantum circuit.
+
 
 Run the calculation using Constant Measurement Protocol:
 
@@ -79,7 +102,7 @@ python vqd_statevector.py
 
 The results are saved to an HDF5 file named `results_YYYYMMDD-HHMMSS.h5`. To change the material one only has to change 'config' option inside the `vqd_sampler.py` or `vqd_statevector.py`. 
 
-### 3. Visualizing the Results (`vqd_printer.py`)
+### 3. Visualizing the results (`vqd_printer.py`)
 
 The visualization script allows plotting the stored results and comparing them with the reference (classical) values.
 Upon execution, a file dialog will open to select the HDF5 results file.
@@ -99,8 +122,11 @@ The script automatically generates four plots:
 
 Users may further modify or extend the generated plots and other actions directly within the `vqd_printer.py` script.
 
-Examples:
-The files `results_20260101-175107.h5` and `results_20260101-180525.h5` contain an example results from `vqd_sampler.py` for  copper–oxygen CuO₂ system and bilayer graphen, respectively. The results can be simply opened and visualized by running `vqd_sampler.py` script. The calculation was performed with $N_{\text{max}} = 10^3$ and $N_{\text{shots}} = 2\times 10^4$.
+## 4. Examples
+
+The files `results_20260101-175107.h5` and `results_20260101-180525.h5` contain example results from `vqd_sampler.py` for the copper–oxygen (CuO₂) system and bilayer graphene, respectively.  
+
+The results can be easily opened and visualized by running the `vqd_printer.py` script. The calculations were performed with $N_{\text{max}} = 10^3$ and $N_{\text{shots}} = 2 \times 10^4$.
 
 
 ## License
